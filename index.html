@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rota do Cartão</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: lista de cartões à esquerda; à direita a ficha de circulação, com carimbo de custódia e rota vertical de assinaturas. */
+:root{
+  color-scheme:light;
+  --bg:#E8EDEF; --surface:#F7F9FA; --wash:#DDE5E8; --ink:#13222A; --ink-2:#4A5B64; --line:#C3CDD2;
+  --accent:#1B4FD6; --accent-ink:#FFFFFF;
+  --ok:#1E7A4C; --hold:#F0AE1C; --hold-ink:#2E1F00; --late:#BF3520;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Instrument Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A20; --surface:#162830; --wash:#1E3640; --ink:#E4EEF1; --ink-2:#9DB1BA; --line:#2A4049;
+    --accent:#7FA0FF; --accent-ink:#0B1530;
+    --ok:#5FC08A; --hold:#E7A91C; --hold-ink:#241800; --late:#FF7B63;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A20; --surface:#162830; --wash:#1E3640; --ink:#E4EEF1; --ink-2:#9DB1BA; --line:#2A4049;
+  --accent:#7FA0FF; --accent-ink:#0B1530;
+  --ok:#5FC08A; --hold:#E7A91C; --hold-ink:#241800; --late:#FF7B63;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0;
+  background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-block:28px 56px;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;line-height:1.1}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.75rem;font-weight:700;letter-spacing:-.01em}
+h3{font-size:.8rem;font-weight:600;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2)}
+p{margin:0}
+.lead{color:var(--ink-2);max-width:60ch;margin-top:8px}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-2)}
+
+.layout{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);gap:28px;margin-top:28px;align-items:start}
+@media (max-width:760px){.layout{grid-template-columns:minmax(0,1fr);gap:20px}}
+
+/* lista */
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{
+  display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;
+  background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px 12px;
+  font:inherit;cursor:pointer;
+}
+.item:hover{background:var(--wash)}
+.item[aria-current="true"]{background:var(--surface);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.item-name{font-family:var(--f-display);font-weight:600;font-size:1.05rem}
+.item-meta{font-size:.82rem;color:var(--ink-2)}
+.item-meta.late{color:var(--late)}
+.prog{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ok)}
+
+/* botões e campos */
+.btn{
+  font:inherit;font-weight:500;font-size:.9rem;min-height:40px;padding:8px 14px;border-radius:6px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;
+}
+.btn:hover{background:var(--wash)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{min-height:34px;padding:5px 10px;font-size:.84rem}
+.btn.danger{color:var(--late);border-color:var(--late);background:transparent}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.quiet:hover{background:var(--wash);color:var(--ink)}
+.btn:focus-visible,.item:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,select,textarea{
+  font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;
+  padding:8px 10px;min-height:40px;max-width:100%;
+}
+textarea{width:100%;min-height:120px;resize:vertical}
+label{font-weight:500;font-size:.88rem}
+
+/* ficha */
+.slip{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-width:0}
+.slip-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding:22px 22px 18px}
+.slip-head .meta{color:var(--ink-2);margin-top:8px;font-size:.9rem}
+.stamp{
+  font-family:var(--f-mono);font-weight:500;text-transform:uppercase;letter-spacing:.08em;font-size:.95rem;
+  border:2px solid currentColor;border-radius:4px;padding:8px 12px;transform:rotate(-2.5deg);
+  background:transparent;max-width:100%;overflow-wrap:anywhere;
+}
+.stamp.hold{background:var(--hold);color:var(--hold-ink);border-color:var(--hold-ink)}
+.stamp.late{color:var(--late)}
+.stamp.ready,.stamp.done{color:var(--ok)}
+.perf{border-top:2px dashed var(--line);margin:0 12px}
+.alert{margin:16px 22px 0;padding:10px 12px;border:1px solid var(--late);border-radius:6px;color:var(--late);font-size:.9rem;font-weight:500}
+.sec{padding:20px 22px}
+.sec + .sec{border-top:1px solid var(--line)}
+.sec h3{margin-bottom:14px}
+
+.route{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+.stop{position:relative;padding-left:40px;min-height:30px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;justify-content:space-between}
+.stop:not(:last-child)::before{content:"";position:absolute;left:11px;top:28px;bottom:-14px;width:2px;background:var(--line)}
+.stop.signed:not(:last-child)::before{background:var(--ok)}
+.node{position:absolute;left:0;top:2px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+.stop.signed .node{background:var(--ok);color:var(--surface)}
+.stop.holder .node{background:var(--hold);box-shadow:0 0 0 4px color-mix(in srgb,var(--hold) 30%,transparent)}
+.stop.holder .node::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--hold-ink)}
+.stop.pending .node{border:2px dashed var(--ink-2)}
+.stop-body{display:flex;flex-direction:column;min-width:0}
+.stop-name{font-weight:600}
+.stop-state{font-size:.82rem;color:var(--ink-2)}
+.stop.holder .stop-state{color:var(--ink);font-weight:500}
+.stop-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pass{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%;padding-top:6px}
+.pass label{font-family:var(--f-mono);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-2)}
+.add{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;padding-left:40px}
+.add input{flex:1 1 160px;min-width:0}
+
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.log li{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:.88rem}
+.log time{font-family:var(--f-mono);font-size:.76rem;color:var(--ink-2);flex:0 0 auto;padding-top:2px}
+.foot{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.foot .group{display:flex;flex-wrap:wrap;gap:8px}
+
+/* formulário novo cartão */
+.form{display:flex;flex-direction:column;gap:16px;max-width:520px}
+.field{display:flex;flex-direction:column;gap:6px}
+.hint{font-size:.82rem;color:var(--ink-2)}
+
+.notice{margin-top:18px;font-family:var(--f-mono);font-size:.76rem;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:4px 10px}
+.notice b{font-weight:500;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:0 6px}
+.empty{padding:28px 22px;color:var(--ink-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:.9rem;max-width:calc(100% - 32px);z-index:20}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Cartões de aniversário</p>
+    <h1>Rota do Cartão</h1>
+    <p class="lead">Registro de quem já assinou o cartão e com quem ele está agora. Cada pessoa atualiza a ficha ao receber e ao passar o cartão.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="side" aria-label="Cartões">
+      <div>
+        <h3 style="margin-bottom:10px">Em circulação</h3>
+        <div class="list" id="list-open"></div>
+      </div>
+      <div id="done-wrap" hidden>
+        <h3 style="margin-bottom:10px">Entregues</h3>
+        <div class="list" id="list-done"></div>
+      </div>
+      <button class="btn primary" type="button" data-act="new">Novo cartão</button>
+    </aside>
+    <main id="detail" aria-live="polite"></main>
+  </div>
+
+  <div class="notice" id="notice"></div>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+  /* Cole aqui a URL do aplicativo web do Apps Script (termina em /exec). */
+  var API_URL = 'https://script.google.com/macros/s/AKfycby2l2qF6TRo04gM1370ADtHVYcNXAJXQTE272q_OAiOhNnS2EMsUaynwcQQ1eIVM1bM/exec';
+  var POLL_MS = 15000;
+
+  var DAY = 86400000;
+  var cards = [];
+  var mode = 'wait';          // wait | api | local
+  var offline = false, pending = 0, lastSnap = '';
+  var sel = null, view = 'card', confirming = null, nextChoice = {};
+  var chain = {};
+
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function uid(){return Math.random().toString(36).slice(2,10);}
+  function isoLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function fmtDay(iso){return new Date(iso+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});}
+  function fmtWhen(iso){
+    var d = new Date(iso);
+    return d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'}).replace('.','')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function daysUntil(iso){var t=new Date();var a=new Date(t.getFullYear(),t.getMonth(),t.getDate());return Math.round((new Date(iso+'T00:00:00')-a)/DAY);}
+  function daysSince(iso){return Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/DAY));}
+  function plural(n,one,many){return n+' '+(n===1?one:many);}
+
+  /* Cartão de exemplo, só em memória, para mostrar o fluxo antes do primeiro cartão real. */
+  var DEMO = (function(){
+    var now = Date.now(), names = ['Rafael','Júlia','Marcos','Patrícia','Bruno','Fernanda','Diego'];
+    return {
+      id:'demo', demo:true, honoree:'Carla Mendes', date:isoLocal(new Date(now+9*DAY)),
+      people:names.map(function(n,i){return {name:n,signed:i<2};}),
+      holder:'Marcos', status:'ativo', moved:new Date(now-3*DAY).toISOString(),
+      log:[
+        {t:new Date(now-3*DAY).toISOString(),text:'Júlia assinou e passou para Marcos'},
+        {t:new Date(now-5*DAY).toISOString(),text:'Rafael assinou e passou para Júlia'},
+        {t:new Date(now-6*DAY).toISOString(),text:'Cartão criado. Primeiro a assinar: Rafael'}
+      ]
+    };
+  })();
+
+  function isDemo(){return cards.length===0;}
+  function visible(){return isDemo()?[DEMO]:cards;}
+  function find(id){return visible().filter(function(c){return c.id===id;})[0];}
+  function ensureSel(){
+    var v = visible();
+    if(!v.some(function(c){return c.id===sel;})){
+      var open = v.filter(function(c){return c.status!=='entregue';});
+      sel = (open[0]||v[0]||{}).id || null;
+    }
+  }
+
+  /* persistência */
+  function saveLocal(){try{localStorage.setItem('rota-cartao',JSON.stringify(cards));}catch(e){}}
+  function loadLocal(){try{var r=localStorage.getItem('rota-cartao');return r?JSON.parse(r):[];}catch(e){return [];}}
+  function clean(c){var o=JSON.parse(JSON.stringify(c));delete o.demo;return o;}
+  function toast(msg){
+    var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;
+    clearTimeout(toast._t);toast._t=setTimeout(function(){t.hidden=true;},3500);
+  }
+  function apiOn(){return mode==='api';}
+  function api(body){
+    return fetch(API_URL,{method:'POST',body:JSON.stringify(body)})
+      .then(function(r){return r.json();})
+      .then(function(j){if(!j.ok) throw new Error(j.error||'erro');return j;});
+  }
+  function load(){
+    return fetch(API_URL).then(function(r){return r.json();}).then(function(j){
+      if(!j.ok) throw new Error(j.error||'erro');
+      var was=offline;offline=false;
+      if(pending>0) return;
+      var snap=JSON.stringify(j.cards);
+      if(snap===lastSnap&&!was) return;
+      lastSnap=snap;cards=j.cards;render();
+    });
+  }
+  function loadFailed(){
+    if(!offline){offline=true;render();toast('Não foi possível acessar a planilha. Nova tentativa em instantes.');}
+  }
+  function remote(id,fn){
+    pending++;
+    chain[id]=(chain[id]||Promise.resolve()).then(fn).catch(function(){toast('Não foi possível salvar. Verifique a conexão e tente novamente.');}).then(function(){
+      pending--;
+      if(apiOn()&&pending===0) load().catch(loadFailed);
+    });
+  }
+  function commit(c){
+    render();
+    if(c.demo) return;
+    if(apiOn()){remote(c.id,function(){return api({action:'save',card:clean(c)});});}
+    else saveLocal();
+  }
+  function touch(c,text,moved){
+    var now=new Date().toISOString();
+    if(moved) c.moved=now;
+    c.log=[{t:now,text:text}].concat(c.log||[]).slice(0,40);
+  }
+
+  /* regras de estado */
+  function counts(c){return {signed:c.people.filter(function(p){return p.signed;}).length,total:c.people.length};}
+  function stateOf(c){
+    var n=counts(c);
+    if(c.status==='entregue') return {tone:'done',label:'Entregue'};
+    if(c.holder) return {tone:daysSince(c.moved)>=4?'late':'hold',label:'Com '+c.holder};
+    if(n.total>0 && n.signed===n.total) return {tone:'ready',label:'Pronto para entrega'};
+    return {tone:'late',label:'Sem paradeiro'};
+  }
+  function suggestNext(c){
+    var i=c.people.map(function(p){return p.name;}).indexOf(c.holder);
+    for(var k=1;k<=c.people.length;k++){
+      var p=c.people[(i+k)%c.people.length];
+      if(p && !p.signed && p.name!==c.holder) return p.name;
+    }
+    return '';
+  }
+  function dueText(c){
+    var d=daysUntil(c.date);
+    if(d>1) return 'em '+d+' dias';
+    if(d===1) return 'amanhã';
+    if(d===0) return 'hoje';
+    return 'atrasada '+plural(-d,'dia','dias');
+  }
+
+  /* ações */
+  function doPass(c){
+    var s=document.getElementById('next-sel');var to=s?s.value:'';
+    var from=c.holder;
+    c.people.forEach(function(p){if(p.name===from) p.signed=true;});
+    c.holder=to||null;
+    touch(c,to?from+' assinou e passou para '+to:from+' assinou. Cartão pronto para entrega',true);
+    delete nextChoice[c.id];
+    commit(c);
+  }
+  function doClaim(c,i){
+    var name=c.people[i].name;
+    c.holder=name;
+    touch(c,name+' recebeu o cartão',true);
+    delete nextChoice[c.id];
+    commit(c);
+  }
+  function doAdd(c,name){
+    name=name.trim();
+    if(!name) return;
+    if(c.people.some(function(p){return p.name.toLowerCase()===name.toLowerCase();})){toast('Esse nome já está na lista.');return;}
+    c.people.push({name:name,signed:false});
+    touch(c,name+' foi adicionado à lista',false);
+    commit(c);
+  }
+  function doRemove(c,i){
+    var name=c.people[i].name;
+    c.people.splice(i,1);
+    touch(c,name+' foi removido da lista',false);
+    commit(c);
+  }
+  function doDeliver(c){
+    c.status='entregue';c.holder=null;
+    touch(c,'Cartão entregue a '+c.honoree,true);
+    confirming=null;commit(c);
+  }
+  function doDelete(c){
+    if(c.demo) return;
+    confirming=null;
+    cards=cards.filter(function(x){return x.id!==c.id;});
+    ensureSel();
+    render();
+    if(apiOn()){remote(c.id,function(){return api({action:'delete',id:c.id});});}
+    else saveLocal();
+  }
+  function createCard(name,date,list){
+    var names=[],seen={};
+    list.split('\n').forEach(function(s){s=s.trim();var k=s.toLowerCase();if(s&&!seen[k]){seen[k]=1;names.push(s);}});
+    if(!name.trim()){toast('Informe o nome do aniversariante.');return;}
+    if(!names.length){toast('Informe ao menos uma pessoa para assinar.');return;}
+    var now=new Date().toISOString();
+    var c={id:uid(),honoree:name.trim(),date:date,
+      people:names.map(function(n){return {name:n,signed:false};}),
+      holder:names[0],status:'ativo',moved:now,
+      log:[{t:now,text:'Cartão criado. Primeiro a assinar: '+names[0]}]};
+    cards.push(c);sel=c.id;view='card';confirming=null;
+    commit(c);
+  }
+
+  /* renderização */
+  var CHECK='<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.5l2.6 2.6L11 4.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function itemHtml(c){
+    var n=counts(c),st=stateOf(c),late=c.status!=='entregue'&&daysUntil(c.date)<0;
+    var pct=n.total?Math.round(n.signed/n.total*100):0;
+    return '<button type="button" class="item" data-act="select" data-id="'+esc(c.id)+'" aria-current="'+(c.id===sel&&view==='card')+'">'
+      +'<span class="item-name">'+esc(c.honoree)+'</span>'
+      +'<span class="item-meta'+(late?' late':'')+'">Entrega '+fmtDay(c.date)+(c.status==='entregue'?'':' · '+dueText(c))+'</span>'
+      +'<span class="item-meta">'+esc(st.label)+' · '+n.signed+' de '+n.total+' assinaturas</span>'
+      +'<span class="prog" aria-hidden="true"><i style="width:'+pct+'%"></i></span></button>';
+  }
+
+  function stopHtml(c,p,i){
+    var isHolder=c.status!=='entregue'&&c.holder===p.name;
+    var cls=isHolder?'holder':(p.signed?'signed':'pending');
+    var state=isHolder?'está com o cartão':(p.signed?'assinou':'falta assinar');
+    var node=p.signed&&!isHolder?CHECK:'';
+    var actions='';
+    if(c.status!=='entregue'){
+      if(!isHolder) actions+='<button type="button" class="btn small" data-act="claim" data-i="'+i+'">Está comigo</button>'
+        +'<button type="button" class="btn small quiet" data-act="remove" data-i="'+i+'" aria-label="Remover '+esc(p.name)+' da lista">Remover</button>';
+    }
+    var pass='';
+    if(isHolder){
+      var opts=c.people.filter(function(q){return !q.signed&&q.name!==c.holder;});
+      var def=nextChoice[c.id];
+      if(def===undefined||(def!==''&&!opts.some(function(q){return q.name===def;}))) def=suggestNext(c);
+      pass='<div class="pass"><label for="next-sel">Passar para</label>'
+        +'<select id="next-sel" data-role="next">'
+        +opts.map(function(q){return '<option value="'+esc(q.name)+'"'+(q.name===def?' selected':'')+'>'+esc(q.name)+'</option>';}).join('')
+        +'<option value=""'+(def===''?' selected':'')+'>Ninguém (último a assinar)</option></select>'
+        +'<button type="button" class="btn primary small" data-act="pass">Assinei e passei</button></div>';
+    }
+    return '<li class="stop '+cls+'"><span class="node">'+node+'</span>'
+      +'<div class="stop-body"><span class="stop-name">'+esc(p.name)+'</span><span class="stop-state">'+state+'</span></div>'
+      +(actions?'<div class="stop-actions">'+actions+'</div>':'')+pass+'</li>';
+  }
+
+  function slipHtml(c){
+    var n=counts(c),st=stateOf(c),idle=daysSince(c.moved),active=c.status!=='entregue';
+    var h='<article class="slip" aria-label="Ficha de '+esc(c.honoree)+'">'
+      +'<header class="slip-head"><div style="min-width:0"><p class="eyebrow">Ficha de circulação · para</p>'
+      +'<h2>'+esc(c.honoree)+'</h2>'
+      +'<p class="meta">Entrega em '+fmtDay(c.date)+(active?' ('+dueText(c)+')':'')+' · '+n.signed+' de '+n.total+' assinaturas</p></div>'
+      +'<div class="stamp '+st.tone+'">'+esc(st.label)+'</div></header>';
+    if(active && c.holder && idle>=2) h+='<p class="alert">Parado com '+esc(c.holder)+' há '+plural(idle,'dia','dias')+'. Vale confirmar se o cartão está na mesa dele.</p>';
+    if(active && !c.holder && st.tone==='late') h+='<p class="alert">Ninguém está registrado com o cartão. Quem estiver com ele deve tocar em “Está comigo” no próprio nome.</p>';
+    h+='<div class="perf" style="margin-top:18px"></div>';
+    h+='<section class="sec"><h3>Rota de assinaturas</h3><ol class="route">'+c.people.map(function(p,i){return stopHtml(c,p,i);}).join('')+'</ol>';
+    if(active) h+='<form class="add" id="add-form"><label class="sr" for="add-name">Adicionar pessoa à lista</label><input id="add-name" type="text" placeholder="Adicionar pessoa à lista" autocomplete="off"><button class="btn" type="submit">Adicionar</button></form>';
+    h+='</section>';
+    h+='<section class="sec"><h3>Histórico</h3><ul class="log">'
+      +(c.log||[]).slice(0,6).map(function(l){return '<li><time datetime="'+esc(l.t)+'">'+esc(fmtWhen(l.t))+'</time><span>'+esc(l.text)+'</span></li>';}).join('')+'</ul></section>';
+    var foot='<div class="group">';
+    if(active){
+      foot+=confirming==='deliver'
+        ?'<button type="button" class="btn primary" data-act="deliver-yes">Confirmar entrega</button><button type="button" class="btn quiet" data-act="cancel">Cancelar</button>'
+        :'<button type="button" class="btn" data-act="deliver">Marcar como entregue</button>';
+    }
+    foot+='</div><div class="group">';
+    if(!c.demo){
+      foot+=confirming==='delete'
+        ?'<button type="button" class="btn danger" data-act="delete-yes">Confirmar exclusão</button><button type="button" class="btn quiet" data-act="cancel">Cancelar</button>'
+        :'<button type="button" class="btn quiet" data-act="delete">Excluir cartão</button>';
+    }
+    foot+='</div>';
+    h+='<section class="sec foot">'+foot+'</section></article>';
+    return h;
+  }
+
+  function formHtml(){
+    var d=new Date(Date.now()+14*DAY);
+    return '<article class="slip"><div class="sec"><p class="eyebrow">Nova ficha</p><h2 style="margin:6px 0 20px">Novo cartão</h2>'
+      +'<form class="form" id="new-form">'
+      +'<div class="field"><label for="nc-name">Aniversariante</label><input id="nc-name" type="text" autocomplete="off"></div>'
+      +'<div class="field"><label for="nc-date">Data de entrega</label><input id="nc-date" type="date" value="'+isoLocal(d)+'"></div>'
+      +'<div class="field"><label for="nc-people">Quem vai assinar</label><textarea id="nc-people" placeholder="Um nome por linha"></textarea>'
+      +'<p class="hint">O primeiro da lista recebe o cartão. A ordem pode mudar depois, cada pessoa escolhe para quem passa.</p></div>'
+      +'<div class="foot"><div class="group"><button class="btn primary" type="submit">Criar cartão</button><button class="btn quiet" type="button" data-act="cancel-new">Cancelar</button></div></div>'
+      +'</form></div></article>';
+  }
+
+  function noticeHtml(){
+    var m;
+    if(isDemo()) m='<b>Exemplo</b><span>Ficha ilustrativa. Os cartões reais começam quando o primeiro for criado.</span>';
+    else if(mode==='api'&&offline) m='<b>Sem conexão</b><span>Não foi possível acessar a planilha. Nova tentativa a cada 15 segundos.</span>';
+    else if(mode==='api') m='<b>Sincronizado</b><span>Os cartões ficam na planilha e a página atualiza sozinha a cada 15 segundos.</span>';
+    else m='<b>Protótipo</b><span>Os dados ficam salvos só neste navegador.</span>';
+    if(isDemo()&&mode==='local') m+='<b>Protótipo</b><span>Sem compartilhamento nesta visualização.</span>';
+    return m;
+  }
+
+  function render(){
+    ensureSel();
+    var vals={};document.querySelectorAll('input[id],textarea[id]').forEach(function(el){vals[el.id]=el.value;});
+    var a=document.activeElement,aid=a&&a.id,as=a&&a.selectionStart;
+    var v=visible().slice().sort(function(x,y){return x.date<y.date?-1:1;});
+    var open=v.filter(function(c){return c.status!=='entregue';}),done=v.filter(function(c){return c.status==='entregue';});
+    document.getElementById('list-open').innerHTML=open.length?open.map(itemHtml).join(''):'<p class="hint">Nenhum cartão em circulação.</p>';
+    document.getElementById('done-wrap').hidden=!done.length;
+    document.getElementById('list-done').innerHTML=done.map(itemHtml).join('');
+    var c=find(sel);
+    document.getElementById('detail').innerHTML=view==='new'?formHtml():(c?slipHtml(c):'<div class="slip"><p class="empty">Selecione um cartão.</p></div>');
+    document.getElementById('notice').innerHTML=noticeHtml();
+    Object.keys(vals).forEach(function(k){var el=document.getElementById(k);if(el&&vals[k]!==''&&el.type!=='date') el.value=vals[k];});
+    if(aid){var el2=document.getElementById(aid);if(el2){el2.focus();try{if(as!=null&&el2.setSelectionRange) el2.setSelectionRange(as,as);}catch(e){}}}
+  }
+
+  /* eventos */
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');if(!b) return;
+    var act=b.getAttribute('data-act'),c=find(sel),i=parseInt(b.getAttribute('data-i'),10);
+    if(act==='select'){sel=b.getAttribute('data-id');view='card';confirming=null;render();}
+    else if(act==='new'){view='new';render();var f=document.getElementById('nc-name');if(f) f.focus();}
+    else if(act==='cancel-new'){view='card';render();}
+    else if(!c) return;
+    else if(act==='pass') doPass(c);
+    else if(act==='claim') doClaim(c,i);
+    else if(act==='remove') doRemove(c,i);
+    else if(act==='deliver'){confirming='deliver';render();}
+    else if(act==='deliver-yes') doDeliver(c);
+    else if(act==='delete'){confirming='delete';render();}
+    else if(act==='delete-yes') doDelete(c);
+    else if(act==='cancel'){confirming=null;render();}
+  });
+  document.addEventListener('change',function(e){
+    if(e.target.id==='next-sel') nextChoice[sel]=e.target.value;
+  });
+  document.addEventListener('submit',function(e){
+    e.preventDefault();
+    if(e.target.id==='add-form'){
+      var c=find(sel),inp=document.getElementById('add-name');
+      if(c&&inp){var val=inp.value;inp.value='';doAdd(c,val);}
+    }else if(e.target.id==='new-form'){
+      var d=document.getElementById('nc-date').value;
+      createCard(document.getElementById('nc-name').value,d||isoLocal(new Date(Date.now()+14*DAY)),document.getElementById('nc-people').value);
+    }
+  });
+
+  /* inicialização: com a URL do Apps Script, usa a planilha; sem ela, guarda só neste navegador */
+  function fallbackLocal(){mode='local';cards=loadLocal();render();}
+  render();
+  if(API_URL.indexOf('https://script.google.com/')!==0){
+    fallbackLocal();
+  }else{
+    mode='api';render();
+    load().catch(loadFailed);
+    setInterval(function(){if(!document.hidden&&pending===0) load().catch(loadFailed);},POLL_MS);
+    document.addEventListener('visibilitychange',function(){if(!document.hidden&&pending===0) load().catch(loadFailed);});
+  }
+})();
+</script>
+</body>
+</html>
